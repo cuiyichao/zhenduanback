@@ -1,0 +1,90 @@
+package com.example.demo.service;
+
+import com.example.demo.util.HttpClientUtil;
+import com.example.demo.util.PhpApiEncodeUtil;
+import com.google.gson.Gson;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Service
+public class UserInfoService {
+
+    private static final Logger logger = LoggerFactory.getLogger(UserInfoService.class);
+    private static final String USER_INFO_URL = "http://10.108.8.60:8090/tools-api/user/getUserInfo";
+
+    /**
+     * 根据环境和 cardnumber 获取 utoken
+     * @param env 环境信息
+     * @param cardnumber 卡号
+     * @return utoken
+     * @throws Exception 异常
+     */
+    public String getUtokenByCard(String env, String cardnumber) throws Exception {
+        // 构建请求参数
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("env", env);
+        requestBody.put("cardList", new String[]{cardnumber});
+        String requestJson = new Gson().toJson(requestBody);
+
+        // 发送请求获取用户信息
+        logger.info("Sending request to {} with body: {}", USER_INFO_URL, requestJson);
+        String response = HttpClientUtil.postJson(USER_INFO_URL, requestJson);
+        logger.info("Received response: {}", response);
+
+        Map<String, Object> responseMap = new Gson().fromJson(response, HashMap.class);
+        Map<String, Object> data = (Map<String, Object>) responseMap.get("data");
+        if (data != null) {
+            Number id = (Number) data.get("id");
+            if (id != null) {
+                String uid = id.toString();
+                String tokenKey;
+                if ("0".equals(env)) {
+                    // 测试环境的 tokenKey
+                    tokenKey = "1234567890abcdef";
+                } else {
+                    // 线上环境的 tokenKey
+                    tokenKey = "tal-chengjiukehu";
+                }
+                // 根据 id 生成 utoken
+                return PhpApiEncodeUtil.encoded(uid, tokenKey);
+            }
+        }
+        throw new Exception("未获取到有效的用户 ID");
+    }
+
+    /**
+     * 根据环境和 cardnumber 获取用户信息
+     * @param env 环境信息
+     * @param cardnumber 学员编号
+     * @return 用户信息
+     * @throws Exception 异常
+     */
+    public Map<String, Object> getUserInfoByCard(String env, String cardnumber) throws Exception {
+        // 构建请求参数
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("env", env);
+        requestBody.put("cardList", new String[]{cardnumber});
+        String requestJson = new Gson().toJson(requestBody);
+
+        // 发送请求获取用户信息
+        logger.info("Sending request to {} with body: {}", USER_INFO_URL, requestJson);
+        String response = HttpClientUtil.postJson(USER_INFO_URL, requestJson);
+        logger.info("Received response: {}", response);
+
+        Map<String, Object> responseMap = new Gson().fromJson(response, HashMap.class);
+        Map<String, Object> data = (Map<String, Object>) responseMap.get("data");
+        if (data != null) {
+            Map<String, Object> userInfo = new HashMap<>();
+            userInfo.put("studentCode", data.get("id"));
+            userInfo.put("studentId", data.get("studentid"));
+            userInfo.put("studentName", data.get("realname"));
+            userInfo.put("uid", data.get("id"));
+            return userInfo;
+        }
+        throw new Exception("未获取到有效的用户信息");
+    }
+}
